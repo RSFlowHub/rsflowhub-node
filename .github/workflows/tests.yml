@@ -1,0 +1,28 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['18', '20', '22']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - name: Smoke-test the built ESM and CommonJS entry points
+        run: |
+          node -e "const { RSFlowHub } = require('./dist/index.cjs'); new RSFlowHub({ apiKey: 'rfh_x' }); console.log('cjs ok')"
+          node --input-type=module -e "import { RSFlowHub } from './dist/index.js'; new RSFlowHub({ apiKey: 'rfh_x' }); console.log('esm ok')"
