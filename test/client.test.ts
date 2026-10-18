@@ -123,16 +123,20 @@ describe('calls', () => {
     const m = mockClient();
     m.queue(ok({ document: { id: 9 } }));
 
-    await m.client.knowledgeBases.createDocument(4, {
-      file: new File(['Refunds within 30 days.'], 'refunds.txt', { type: 'text/plain' }),
-      metadata: { source: 'faq' },
-    });
+    // Node 18 has Blob but no global File (added in Node 20).
+    const hasFile = typeof File !== 'undefined';
+    const file = hasFile
+      ? new File(['Refunds within 30 days.'], 'refunds.txt', { type: 'text/plain' })
+      : new Blob(['Refunds within 30 days.'], { type: 'text/plain' });
+
+    await m.client.knowledgeBases.createDocument(4, { file, metadata: { source: 'faq' } });
 
     const form = m.last().body as FormData;
     expect(form).toBeInstanceOf(FormData);
     expect(m.last().headers.get('Content-Type')).toBeNull(); // fetch sets the boundary
-    expect((form.get('file') as File).name).toBe('refunds.txt');
-    expect(await (form.get('file') as File).text()).toBe('Refunds within 30 days.');
+    const sent = form.get('file') as Blob & { name?: string };
+    expect(sent.name).toBe(hasFile ? 'refunds.txt' : 'file');
+    expect(await sent.text()).toBe('Refunds within 30 days.');
     expect(form.get('metadata[source]')).toBe('faq');
   });
 
